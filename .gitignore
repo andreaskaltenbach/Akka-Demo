@@ -1,0 +1,12 @@
+#IDEA generated files
+*.iml
+**/*.iml
+.idea
+*.ipr
+*.iws
+
+#Maven target folders
+**/target
+
+#H2 In-Memory database files (located in ddp-logic)
+ddp-logic/ddp
