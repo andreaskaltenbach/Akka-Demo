@@ -1,10 +1,10 @@
 package se.stendahls.krabbelsack
 
 import akka.actor.Actor.actorOf
-import akka.actor.{ActorRef, Actor}
 import collection.mutable.{DoubleLinkedList, Queue}
 import java.util.Random
 import javax.print.attribute.standard.PresentationDirection
+import akka.actor.{PoisonPill, ActorRef, Actor}
 
 object Application extends App {
 
@@ -15,12 +15,17 @@ object Application extends App {
 
   val erik = actorOf(new PersonActor("Erik", Beer, 1000, krabbelsackActor))
   val matsola = actorOf(new PersonActor("Mats-Ola", Honey, 1000, krabbelsackActor))
-  val daniel = actorOf(new PersonActor("Daniel", Volleyball, 60000, krabbelsackActor))
-  val anders = actorOf(new PersonActor("Anders", Chicken, 45000, krabbelsackActor))
+  val daniel = actorOf(new PersonActor("Daniel", Volleyball, 12000, krabbelsackActor))
+  val anders = actorOf(new PersonActor("Anders", Chicken, 13000, krabbelsackActor))
   Set(erik, matsola, daniel, anders).foreach(_.start)
 
   val begin = new Start(krabbelsack)
   Set(erik, matsola, daniel, anders).foreach(_ ! begin)
+
+  Thread.sleep(50000)
+  println("Sending poison pill to everybody")
+  Set(erik, matsola, daniel, anders, krabbelsackActor).foreach(_ ! PoisonPill)
+
 }
 
 // messages
@@ -38,12 +43,15 @@ class PersonActor(name:String, initialPresent:Present, waitingTime:Long, krabbel
   def receive = {
     case Start(krabbelsack) => {
       println(name + " is putting his present " + initialPresent + " into the krabbelsack.")
+      println("------------------------------------")
       krabbelsackActor ! initialPresent
     }
     case Present(p) => {
       println(name + " got a " + p + " as present.")
+      println("------------------------------------")
       Thread.sleep(waitingTime)
       println(name + " does not want his " + p + " and returns it to the krabbelsack.")
+      println("------------------------------------")
       krabbelsackActor ! Present(p)
     }
   }
@@ -62,19 +70,15 @@ class KrabbelsackActor extends Actor {
   def receive = {
 
     case Present(p) => {
-
-      println("Adding " + p + " to the krabbelsack.")
       personQueue += self.sender.get
       presents = Present(p) +: presents
-      println("Krabbelsack now contains " + presents.size + " presents.")
-      println("------------------------------------")
 
       while(presents.size > 1) {
 
         // fetch random present
         val randomIndex = new Random().nextInt(presents.size)
         val present = presents(randomIndex)
-        presents = presents filter (_ == present)
+        presents = presents filter (_ != present)
 
         // give present to next person in queue
         val personActor = personQueue.dequeue
